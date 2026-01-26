@@ -22,8 +22,8 @@ Or can be run standalone on current changes.
 ### Step 1: Identify Changed Files
 
 ```bash
-# Get list of changed files
-git -C "C:/CT-Project" status --porcelain
+# Get list of changed files (run from project root)
+git status --porcelain
 
 # Or if files known from previous step, use those
 ```

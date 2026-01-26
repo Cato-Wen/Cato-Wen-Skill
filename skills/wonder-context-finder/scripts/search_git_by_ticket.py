@@ -4,7 +4,7 @@ Search git history for Jira ticket references in the Wonder monorepo.
 
 Usage:
     python search_git_by_ticket.py MD-17329
-    python search_git_by_ticket.py MD-17329 --repo C:/CT-Project
+    python search_git_by_ticket.py MD-17329 --repo /path/to/wonder-project
     python search_git_by_ticket.py MD-17329 --files
 """
 import subprocess
@@ -13,8 +13,9 @@ import sys
 import json
 import argparse
 from pathlib import Path
+import os
 
-DEFAULT_REPO = "C:/CT-Project"
+DEFAULT_REPO = os.getcwd()  # Use current working directory as default
 
 def search_commits_by_ticket(ticket_id: str, repo_path: str = DEFAULT_REPO) -> list:
     """Search git commits containing the ticket ID."""

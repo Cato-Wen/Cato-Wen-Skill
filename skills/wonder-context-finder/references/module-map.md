@@ -6,7 +6,7 @@ This file documents the service responsibilities and module organization in the 
 
 **Project Name**: Wonder - Food Service Business Management Platform
 **Type**: Monorepo with backend services and frontend applications
-**Location**: `C:\CT-Project`
+**Location**: User's local clone of the Wonder repository (run commands from project root)
 
 ## Backend Services
 

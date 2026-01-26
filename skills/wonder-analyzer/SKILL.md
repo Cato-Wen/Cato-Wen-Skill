@@ -31,8 +31,8 @@ Jira Ticket ID: `MD-XXXXX` (e.g., MD-17329)
 ```
 1. Identify business terms from ticket (dormant, hot hold, BOM, WSKU, etc.)
 2. Search local docs for context:
-   - C:\CT-Project\docs\business\glossary.md
-   - C:\CT-Project\docs\business\*.md
+   - skills/wonder-analyzer/glossary.md (bundled with this skill)
+   - docs/business/*.md (if exists in project)
 3. Use wonder-context-finder skill references if available
 4. Note: Local docs may be outdated - always verify against code
 ```
@@ -52,20 +52,20 @@ Requirement mentions → Service module
 
 **Strategy B: By API Endpoint**
 ```bash
-# Search for API patterns
-rg -i "endpoint|path|route" C:/CT-Project/backend --glob "*.java" | grep -i "<keyword>"
+# Search for API patterns (run from project root)
+rg -i "endpoint|path|route" backend --glob "*.java" | grep -i "<keyword>"
 ```
 
 **Strategy C: By Data Model**
 ```bash
-# Find entity/domain classes
-rg -l "class.*<EntityName>" C:/CT-Project/backend --glob "*.java"
+# Find entity/domain classes (run from project root)
+rg -l "class.*<EntityName>" backend --glob "*.java"
 ```
 
 **Strategy D: By Similar Feature**
 ```bash
-# Search for similar implementations
-git -C "C:/CT-Project" log --all --oneline --grep="<similar-feature>"
+# Search for similar implementations (run from project root)
+git log --all --oneline --grep="<similar-feature>"
 ```
 
 ### Step 4: Assess Complexity

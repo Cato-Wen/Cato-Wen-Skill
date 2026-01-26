@@ -9,7 +9,7 @@ Help developers navigate the Wonder monorepo by connecting business requirements
 
 ## Quick Reference
 
-**Project**: Wonder monorepo at `C:\CT-Project`
+**Project**: Wonder monorepo (run skills from project root directory)
 **Jira Ticket Format**: `MD-[5-digit number]` (e.g., MD-17329)
 **MS Card Format**: `MSxx-yy` (e.g., MS05-16, MS06-01)
 
@@ -37,11 +37,11 @@ When a developer asks about business functionality, identify the query type:
 
 ### 2. Jira Ticket Query (MD-XXXXX)
 ```
-1. Search git history:
-   git -C "C:/CT-Project" log --all --oneline --grep="MD-XXXXX"
+1. Search git history (run from project root):
+   git log --all --oneline --grep="MD-XXXXX"
 
 2. Get changed files for relevant commits:
-   git -C "C:/CT-Project" diff-tree --no-commit-id --name-only -r <commit-hash>
+   git diff-tree --no-commit-id --name-only -r <commit-hash>
 
 3. Fetch Jira details via MCP:
    mcp__atlassian__getJiraIssue(cloudId="wonder.atlassian.net", issueIdOrKey="MD-XXXXX")
@@ -56,7 +56,7 @@ When a developer asks about business functionality, identify the query type:
 ```
 1. Consult references/domain-glossary.md for term mapping
 2. Get code patterns and locations
-3. Search codebase: rg -i "pattern" C:/CT-Project/backend
+3. Search codebase (run from project root): rg -i "pattern" backend
 4. Reference references/module-map.md for service context
 5. Present: Concept explanation, code locations, related services
 ```
@@ -116,19 +116,21 @@ mcp__atlassian__searchJiraIssuesUsingJql(
 
 ## Git Commands for Code Discovery
 
+All commands should be run from the project root directory.
+
 ### Search commits by ticket
 ```bash
-git -C "C:/CT-Project" log --all --oneline --grep="MD-17329"
+git log --all --oneline --grep="MD-17329"
 ```
 
 ### Get files changed in commit
 ```bash
-git -C "C:/CT-Project" diff-tree --no-commit-id --name-only -r <commit-hash>
+git diff-tree --no-commit-id --name-only -r <commit-hash>
 ```
 
 ### Search commits by keyword
 ```bash
-git -C "C:/CT-Project" log --all --oneline --grep="dormant"
+git log --all --oneline --grep="dormant"
 ```
 
 ## Reference Files

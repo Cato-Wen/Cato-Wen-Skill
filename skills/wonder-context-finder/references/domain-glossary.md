@@ -60,29 +60,31 @@ Source: `backend/domain-library/src/main/java/app/internalrecipe/item/innerclass
 
 ### To find code related to a business term:
 
+All commands should be run from the project root directory.
+
 **Dormant workflow:**
 ```bash
-rg -i "dormant" C:/CT-Project/backend --type java
+rg -i "dormant" backend --type java
 ```
 
 **WSKU management:**
 ```bash
-rg -i "wsku\|wondersku" C:/CT-Project/backend --type java
+rg -i "wsku\|wondersku" backend --type java
 ```
 
 **BOM operations:**
 ```bash
-rg -i "BOM" C:/CT-Project/backend/internal-recipe-service --type java
+rg -i "BOM" backend/internal-recipe-service --type java
 ```
 
 **Version publishing:**
 ```bash
-rg -i "publishversion\|itemversion" C:/CT-Project/backend --type java
+rg -i "publishversion\|itemversion" backend --type java
 ```
 
 **ERP integration:**
 ```bash
-rg -i "erp" C:/CT-Project/backend/internal-recipe-service --type java
+rg -i "erp" backend/internal-recipe-service --type java
 ```
 
 ## Jira Ticket Patterns
@@ -95,9 +97,9 @@ Common ticket categories (from commit tags):
 - `[Migration]` - Data migration changes
 - `[feature]` - New feature implementations
 
-To find code related to a ticket:
+To find code related to a ticket (run from project root):
 ```bash
-git -C "C:/CT-Project" log --all --oneline --grep="MD-17329"
+git log --all --oneline --grep="MD-17329"
 ```
 
 ## MS Card Reference

@@ -3,8 +3,8 @@
 ## Project Structure
 
 ```
-C:\CT-Project\
-├── backend\                    # Core Java/Kotlin services
+<project-root>/
+├── backend/                    # Core Java/Kotlin services
 │   ├── internal-recipe-service\    # Main business logic service
 │   ├── recipe-service-v2\          # Public recipe API (gRPC)
 │   ├── product-catalog-*\          # Product catalog services (MySQL)
