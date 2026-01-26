@@ -63,6 +63,29 @@ Search for reusable components:
 
 ### Step 3: Design Implementation Steps
 
+**Pre-Planning Checks (CRITICAL):**
+```
+1. Check target file line counts:
+   - If file > 400 lines, plan to create a new Service class
+   - Max file length: 450 lines
+
+2. Estimate method sizes:
+   - If logic > 50 lines, plan to split into multiple methods
+   - Max method length: 50 lines
+
+3. Check for nested loop patterns:
+   - Max nested for loops: 1 level
+   - Plan to use Stream API for complex iterations
+
+4. Read domain models:
+   - Check existing fields (BOMHeader.BomLine.itemNumber, ItemCustomization.Item.itemNumber)
+   - Avoid re-querying data already available in models
+
+5. Plan batch queries:
+   - Never query database in loops
+   - Use in() and or() for batch operations
+```
+
 Create ordered steps following dependency chain:
 
 ```
@@ -70,7 +93,7 @@ Standard Order (adjust as needed):
 1. Interface changes (if new API contract)
 2. Domain model changes (if new entities/enums)
 3. Service implementation
-4. Integration/wiring
+4. Integration/wiring (register new Service in Module file)
 5. Unit tests
 6. Integration tests (if applicable)
 ```

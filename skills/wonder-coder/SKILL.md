@@ -212,6 +212,31 @@ notes:
   - "<any implementation notes for reviewer>"
 ```
 
+## Pre-Implementation Checklist (CRITICAL)
+
+**Before writing any code, verify:**
+
+```
+□ Check target file line count (max 450 lines)
+  - If file is near 400 lines, plan to extract to a new Service class
+  - New service naming: BO{Feature}Service.java
+
+□ Plan method sizes (max 50 lines each)
+  - Break large logic into smaller private methods
+
+□ Read domain models first
+  - Check existing fields in BOMHeader.BomLine, ItemCustomization.Item, etc.
+  - Don't re-query data that's already available in the model
+
+□ Use objectType enum for type identification
+  - ❌ Don't use: itemNumber.startsWith("88")
+  - ✅ Do use: itemVersion.objectType == NewObjectType.PACKAGED
+
+□ Plan database queries for batch operations
+  - ❌ Don't query in loops
+  - ✅ Use in() and or() for batch queries
+```
+
 ## Code Quality Checklist
 
 Before completion, verify:
@@ -226,6 +251,8 @@ Before completion, verify:
 □ Tests cover main scenarios
 □ Code matches existing style
 □ No new dependencies added (unless discussed)
+□ No nested for loops (use Stream API instead)
+□ New Service classes registered in Module file
 ```
 
 ## Example Implementation

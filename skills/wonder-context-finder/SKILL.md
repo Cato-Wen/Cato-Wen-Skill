@@ -1,6 +1,6 @@
 ---
 name: wonder-context-finder
-description: Find relevant Wonder monorepo code based on business requirements. Use when developer asks about MS Cards (MS05-xx, MS06-xx, MS08-xx, MS13-xx, MS15-xx), Jira tickets (MD-XXXXX), business concepts (dormant, 40-model, WSKU, ERP sync, hot hold, pack size, BOM, version, item type), or needs to understand which code implements a requirement. Searches requirement docs, git history, Jira/Confluence, and maps business terms to code locations. Project location: C:\CT-Project.
+description: Find relevant Wonder monorepo code based on business requirements. Use when developer asks about MS Cards (MS05-xx, MS06-xx, MS08-xx, MS13-xx, MS15-xx), Jira tickets (MD-XXXXX), business concepts (dormant, 40-model, WSKU, ERP sync, hot hold, pack size, BOM, version, item type), or needs to understand which code implements a requirement. Searches requirement docs, git history, Jira/Confluence, and maps business terms to code locations.
 ---
 
 # Wonder Business Context Code Finder
