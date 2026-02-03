@@ -18,6 +18,38 @@ Expects implementation plan from `wonder-planner`:
 
 ## Workflow
 
+### Step 0: Load Framework Guidelines (MANDATORY)
+
+**Before ANY code implementation, MUST complete these checks:**
+
+#### 0.1 Detect Core-NG Framework
+
+Check if project uses Core-NG:
+- Look for `core.framework` imports in existing Java files
+- Check for `Module` classes extending `core.framework.module.Module`
+- Check `build.gradle` or `build.gradle.kts` for `core-ng` dependencies
+
+#### 0.2 Load Core-NG Guidelines (If Applicable)
+
+**If Core-NG framework is detected:**
+
+1. Check if `core-ng` plugin is installed (look for `core-ng-backend-coding-guidance-skill` in available skills)
+2. If installed, trigger `/core-ng-backend-coding-guidance-skill` to load the framework specification
+3. Follow the Core-NG skill's workflow:
+   - Read Part 1 (Sections 1-6): Framework Constraints, Essential Patterns, Common Mistakes
+   - Read relevant Part 2 sections based on task type (MongoDB, Kafka, HTTP, etc.)
+   - Complete Impact Analysis before writing any code
+
+#### 0.3 Impact Analysis Checklist
+
+Before proceeding to Step 1, ensure:
+- [ ] Data origin traced (MongoDB domain? API response? Kafka message?)
+- [ ] Change chain mapped across all layers
+- [ ] File checklist created
+- [ ] Annotation compliance verified (@Field for MongoDB, @Property for API, @Column for SQL)
+
+**DO NOT proceed to Step 1 until framework guidelines are loaded and impact analysis is complete.**
+
 ### Step 1: Pre-Implementation Setup
 
 ```
