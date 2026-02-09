@@ -179,7 +179,23 @@ Execute wonder-planner logic:
 3. **Design Implementation Steps**
    - Standard order: Interface -> Domain model -> Service -> Integration -> Unit tests
 
-4. **CHECKPOINT: Present Plan for Approval**
+4. **External API Impact Analysis (CRITICAL)**
+   - Check if any changes touch `recipe-service-v2-interface` (the external-facing API)
+   - If YES, you MUST:
+     a. Identify ALL affected external API endpoints (e.g., `@GET @Path("/item/:itemNumber")`)
+     b. Identify the specific request/response classes and fields affected
+     c. Classify the change type:
+        - **Additive (non-breaking)**: Adding new optional fields, adding new enum values to response, adding new endpoints
+        - **Breaking**: Removing fields, renaming fields, changing field types, adding required fields to request, removing enum values
+     d. Present a dedicated **External API Impact** section in the plan output
+     e. For breaking changes: WARN prominently and suggest discussing with downstream consumers before proceeding
+   - Common external API patterns to check:
+     - `recipe-service-v2-interface` request/response classes
+     - Enum types used in external views (e.g., `RegulatoryBodyTypeView`, `ItemStatusView`)
+     - External view builders in `service-common-library`
+   - Note: `internal-recipe-service-interface` is internal (consumed by recipe-site only) and does NOT require this analysis
+
+5. **CHECKPOINT: Present Plan for Approval**
    - ALWAYS pause here and present the plan to user
    - Wait for explicit approval before proceeding
 
@@ -198,6 +214,13 @@ Steps:
 
 Reusing Patterns From:
   - <source-file>: <what to reuse>
+
+External API Impact: <None | See below>
+  ⚠️ This change affects recipe-service-v2 (external API)
+  Affected Endpoint(s): GET /item/:itemNumber
+  Affected Class: GetItemResponse.ExternalRegulationLabelView
+  Change Type: Additive (non-breaking) | Breaking ⛔
+  Detail: <what changed and how it affects downstream consumers>
 
 ==============================================================
 CHECKPOINT: Please review the plan above.
