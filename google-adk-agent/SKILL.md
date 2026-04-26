@@ -115,6 +115,52 @@ ORDER BY timestamp;
 5. **Analyze tool calls**: Check tool execution results
 6. **Review source code**: Reference local ADK source at `C:\adk-java`
 
+## Critical: Always Read ADK Source Code First
+
+**IMPORTANT**: When analyzing or fixing ADK-related bugs, ALWAYS read the ADK source code BEFORE making conclusions or implementing fixes.
+
+### Bug Analysis Methodology
+
+1. **Read logs to identify symptoms** - Note error messages, stack traces, timing
+2. **Read ADK source code to understand mechanism** - Don't guess, understand how the component actually works
+3. **Verify with multiple log samples** - One log sample is not enough; use multiple samples to confirm patterns
+4. **Don't assume correlation = causation** - Multiple errors in same log may be independent issues
+
+### Bug Fixing Methodology
+
+1. **Read ADK source to find framework-provided solutions** - ADK often provides configurations, interfaces, or patterns for common scenarios
+2. **Avoid implementing custom solutions** - Check if the framework already handles your use case
+3. **Understand component lifecycle** - Know how components are created, used, and cleaned up
+4. **Follow ADK's design patterns** - Use the framework the way it was designed to be used
+
+### Common Pitfalls to Avoid
+
+| Pitfall | Why It's Wrong | What To Do Instead |
+|---------|----------------|---------------------|
+| Guessing causation from logs | Multiple errors may be unrelated | Read source code to understand actual mechanism |
+| Implementing manual workarounds | Framework may already have a solution | Check ADK source for existing patterns |
+| Reading only one log sample | Could be coincidental or edge case | Verify patterns across multiple samples |
+| Skipping source code review | Miss understanding of how things actually work | Always read relevant source files first |
+
+### Key Source Files by Issue Type
+
+| Issue Type | Files to Read |
+|------------|---------------|
+| MCP/Tool issues | `McpToolset.java`, `McpTool.java`, `McpSessionManager.java`, `BaseToolset.java` |
+| Agent lifecycle | `LlmAgent.java`, `BaseAgent.java` |
+| Session issues | `Session.java`, `InMemorySessionService.java` |
+| Callback issues | Callback interfaces in `com.google.adk.agents` |
+| Model/LLM issues | `Gemini.java`, `Claude.java`, `BaseLlmFlow.java` |
+
+### Pre-Analysis Checklist
+
+Before analyzing any ADK bug:
+- [ ] Collect multiple log samples showing the issue
+- [ ] Identify the ADK components involved
+- [ ] Read the relevant ADK source files at `C:\adk-java`
+- [ ] Understand the component lifecycle and dependencies
+- [ ] Check if ADK provides configuration or patterns for this scenario
+
 ## Key Files in ADK Source
 
 For deeper investigation, reference these key source files:
