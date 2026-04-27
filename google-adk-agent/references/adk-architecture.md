@@ -193,7 +193,7 @@ Execution configuration:
 
 ## Source Code Reference
 
-Key files in `C:\adk-java\core\src\main\java\com\google\adk\`:
+Key files in `${ADK_JAVA_HOME}/core/src/main/java/com/google/adk/`:
 
 | Path | Description |
 |------|-------------|
