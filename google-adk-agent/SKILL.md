@@ -14,10 +14,31 @@ This skill provides guidance for developing and debugging AI agents built with G
 
 ## Resources
 
-- **ADK Java Source**: `C:\adk-java` - Local ADK Java SDK source code
+- **ADK Java Source**: `${ADK_JAVA_HOME}` - Local ADK Java SDK source code (set this env var to your local clone of `google/adk-java`)
 - **Official Docs**: https://adk.dev/ | https://google.github.io/adk-docs
 - **GitHub**: https://github.com/google/adk-java
 - **Getting Started**: https://adk.dev/get-started/java/
+
+### Setup: Configure ADK_JAVA_HOME
+
+This skill references the local ADK Java source. Configure the `ADK_JAVA_HOME` environment variable to point at your clone:
+
+```powershell
+# Windows (PowerShell, persistent for current user)
+[Environment]::SetEnvironmentVariable("ADK_JAVA_HOME", "C:\adk-java", "User")
+```
+
+```bash
+# macOS / Linux (add to ~/.bashrc or ~/.zshrc)
+export ADK_JAVA_HOME="$HOME/code/adk-java"
+```
+
+If you don't have the source yet:
+```bash
+git clone https://github.com/google/adk-java.git "$ADK_JAVA_HOME"
+```
+
+When this skill mentions a path like `${ADK_JAVA_HOME}/core/src/main/java/...`, substitute the env var with your actual local path before opening the file.
 
 ## Quick Reference
 
@@ -113,7 +134,7 @@ ORDER BY timestamp;
 3. **Query invocation logs**: Find specific invocation errors
 4. **Query conversation logs**: Review full conversation context
 5. **Analyze tool calls**: Check tool execution results
-6. **Review source code**: Reference local ADK source at `C:\adk-java`
+6. **Review source code**: Reference local ADK source at `${ADK_JAVA_HOME}`
 
 ## Critical: Always Read ADK Source Code First
 
@@ -157,7 +178,7 @@ ORDER BY timestamp;
 Before analyzing any ADK bug:
 - [ ] Collect multiple log samples showing the issue
 - [ ] Identify the ADK components involved
-- [ ] Read the relevant ADK source files at `C:\adk-java`
+- [ ] Read the relevant ADK source files at `${ADK_JAVA_HOME}`
 - [ ] Understand the component lifecycle and dependencies
 - [ ] Check if ADK provides configuration or patterns for this scenario
 
@@ -165,11 +186,11 @@ Before analyzing any ADK bug:
 
 For deeper investigation, reference these key source files:
 
-- `C:\adk-java\core\src\main\java\com\google\adk\agents\LlmAgent.java` - Agent implementation
-- `C:\adk-java\core\src\main\java\com\google\adk\runner\Runner.java` - Runner implementation
-- `C:\adk-java\core\src\main\java\com\google\adk\tools\FunctionTool.java` - Tool implementation
-- `C:\adk-java\core\src\main\java\com\google\adk\sessions\` - Session management
-- `C:\adk-java\core\src\main\java\com\google\adk\events\Event.java` - Event model
+- `${ADK_JAVA_HOME}/core/src/main/java/com/google/adk/agents/LlmAgent.java` - Agent implementation
+- `${ADK_JAVA_HOME}/core/src/main/java/com/google/adk/runner/Runner.java` - Runner implementation
+- `${ADK_JAVA_HOME}/core/src/main/java/com/google/adk/tools/FunctionTool.java` - Tool implementation
+- `${ADK_JAVA_HOME}/core/src/main/java/com/google/adk/sessions/` - Session management
+- `${ADK_JAVA_HOME}/core/src/main/java/com/google/adk/events/Event.java` - Event model
 
 ## References
 
