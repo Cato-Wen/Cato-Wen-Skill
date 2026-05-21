@@ -24,40 +24,63 @@ End-to-end loop: **read prod baseline → call local API → compare → adjust 
 5. **Prompt `_id`** in `recipe-agent.agent_instruction_configs` is `7b4f1c9a-1d8e-4f2a-9c3b-5e6f7a8b9c0d` (`instruction_name = LINE_BUILD_FILLER`).
 6. Refresh after each prompt update: `curl -sk -X PUT https://127.0.0.1:5097/bo/agent/refresh`. If service has prompt cache issues, ask user to restart instead.
 
+## Trust-source-first mindset (核心原则)
+
+**Prod is the source of truth.** Whenever LLM output differs from prod's line-build configuration, **do NOT immediately patch the prompt to make the LLM "win" the comparison**. Instead:
+
+1. **Re-think prod's underlying rule** — why is prod configured the way it is? What business / kitchen-operation reason explains this value? (e.g. "Limesalt salad parking is AMBIENT because salads are cold-served"; "Quesadilla uses TURBO_OVEN not PRESS because the dish needs the cheese melted, not pressed flat".)
+2. **Form a hypothesis** about the rule (per-brand default? per-dish-type override? menu-name keyword trigger? a specific itemNumber's appliance preference?).
+3. **Verify the hypothesis by querying prod data rigorously** — use `mongodb-prod_aggregate` to slice `item_versions` by brand / dish-category / itemNumber / activity and confirm the pattern statistically (e.g. "92% of Limesalt salads use `(15, 1800, AMBIENT)`; the remaining 8% are all `Quesadilla`"). Quote sample sizes.
+4. **Only then encode the verified rule in the prompt.** Add a comment in the prompt explaining the prod-side evidence (e.g. "Limesalt Quesadilla family → `(1200, WARM)` — confirmed across 8/9 prod menus") so future maintainers can re-verify.
+5. **Stay honest about the limits**: when a difference is genuine prod variance (different chefs, A/B test, restaurant-specific) or a known skeleton issue (wrong `related_item_number`), say so explicitly and **don't bend the prompt to chase noise**.
+
+This discipline keeps the prompt aligned with reality, prevents over-fitting to the test set, and makes every rule traceable back to prod evidence.
+
 ## Standard loop (one iteration)
 
+```mermaid
+flowchart TD
+    A[1. WC Menu Item Numbers<br/>wc_item=true] --> B[2. Run WCLineBuildAgent<br/>parallel PUT /bo/agent/generate-wc-line-build]
+    B --> C[3. Compare LineBuild Data<br/>LLM output  vs  PROD baseline<br/>by activity + related_item_number]
+    C --> D[4. Identify & Analyze Difference<br/>group by activity + field]
+    D --> E{accuracy<br/>plateau?}
+    E -- No --> F[5. Adjust the Prompt<br/>seed mongo + refresh]
+    F --> B
+    E -- Yes --> G[Done — publish prompt version]
 ```
-1. Pick test set
-   └─ Use wc_item=true menu items from recipe-agent.item_version_line_build_cook_methods
-      (60 items covers all three brands proportionally; sufficient for prompt regression)
 
-2. Pull prod baseline
-   └─ Export recipe-v2.item_versions for the selected _id list, keeping item_line_build
-   └─ Save raw export + compact baseline (first line_build's first task only) for diffing
+Per-step notes:
 
-3. Seed current prompt draft into local mongo + refresh
-   └─ scripts/seed_prompt.py reads prompt md file and updates the instruction text
-   └─ Then curl PUT /bo/agent/refresh
+1. **WC Menu Item Numbers** — query `recipe-agent.item_version_line_build_cook_methods` for `wc_item=true` menu numbers, then map to effective `item_version_id` via prod `recipe-v2.item_versions`.
 
-4. Run the endpoint in parallel (8 workers ≈ 160s for 60 items)
-   └─ scripts/runner_parallel.py calls PUT /bo/agent/generate-wc-line-build
-      (unique chat_session_id per call), polls generate_wc_line_build_logs until
-      succeed_time != null, then dumps llm_response_json + skeleton_json to JSON
+   **Test-set filtering (recommended)**: prefer menus whose **`item_customization` is null or empty** (`item_customization == null` OR `item_customization.options` array is empty). BYO / customizable dishes (e.g. `Bowl (BYO), Limesalt`) carry multiple line_build variants per restaurant / option and their COMPLETE/COOK configs drift across variants — they are the dominant source of statistical noise in the comparison phase. Filtering them out shrinks the test set (e.g. 68 → 31 menus) and gives a cleaner per-field accuracy signal on the canonical line build.
 
-5. Compare LLM output vs baseline
-   └─ scripts/compare.py:
-      - GARNISH / COMPLETE: positional match within activity bucket
-      - COOK: match by first procedure_step.related_item_number (skeleton vs prod may
-        order COOK procedures differently); fall back to positional for placeholder COOKs
-      - title comparison is case-insensitive, trimmed
-   └─ Outputs per-field accuracy table + grouped mismatch list
+   When iterating on RULE 2 (`hold_usage_seconds` / `parking_spot`) or RULE 3 (COOK tuple selection), the no-customization subset is the right test set; only after those rules plateau should you re-add BYO menus to validate that the prompt doesn't regress on the complex shapes.
 
-6. Inspect mismatches → adjust prompt md
-   └─ Categorize by activity+field; prioritize highest-volume systematic issues
-   └─ Patch the prompt md file (RULE 1 / RULE 2 / brand priority etc.)
+   Example aggregation (prod read-only):
+   ```
+   db.item_versions.aggregate([
+     { $match: { _id: { $in: [...effective ivids...] } } },
+     { $project: {
+         name: 1, item_number: 1,
+         has_customization: {
+           $cond: [
+             { $or: [
+                 { $eq: ["$item_customization", null] },
+                 { $eq: [ { $ifNull: ["$item_customization.options", []] }, [] ] }
+             ] },
+             false, true
+           ]
+         }
+     } },
+     { $match: { has_customization: false } }
+   ])
+   ```
 
-7. Repeat from step 3 until accuracy plateaus
-```
+2. **Run WCLineBuildAgent** — `scripts/runner_parallel.py` fires concurrent requests (unique `chat_session_id` per call), polls `generate_wc_line_build_logs` for completion, dumps to `llm-output.json`.
+3. **Compare** — `scripts/excel_report.py` matches LLM procedures to prod procedures by overlapping `related_item_number` within each activity bucket; unmatched LLM procedures are excluded from accuracy stats and listed separately.
+4. **Identify & Analyze** — open `report.xlsx` → `Mismatches` / `LLM-Unmatched` sheets; group by `(activity, field)`; classify as prompt issue / skeleton issue / prod outlier.
+5. **Adjust the Prompt** — edit `openspec/wc-line-build-agent-prompt-v4-draft.md`; `scripts/seed_prompt.py` writes it back to mongo and `curl PUT /bo/agent/refresh` reloads the agent.
 
 Salad-heavy traffic: this endpoint's live requests are dominated by salad menus. Always sanity-check `BYO Greens Bowl, Royal Greens` + `Salad (BYO), Limesalt` + Yasas spreads before declaring a prompt version stable.
 
