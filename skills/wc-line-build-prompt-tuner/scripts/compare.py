@@ -1,60 +1,44 @@
-"""Compare LLM output vs prod baseline per field.
+"""Compare LLM output vs prod baseline, print stdout summary, dump mismatches.json.
 
-Baseline source: each entry's first line_build's first task procedures (canonical
-build for the menu). Both sides are grouped by activity (GARNISH / COOK / COMPLETE).
+Shares all matching/diff logic with excel_report.py so terminal stats are identical
+to what excel_report.py writes into the Summary sheet.
 
-Matching policy:
-- COOK: match by first procedure_step.related_item_number when present (skeleton may
-  reorder COOK procedures differently from prod). Placeholder COOKs (related_item =
-  null) fall back to positional matching.
-- GARNISH / COMPLETE: positional within activity bucket.
-- step_title: case-insensitive trimmed string equality.
+Matching policy (applies to both procedure-level and step-level pairing):
+  Phase 1: pair by related_item_number when present on both sides.
+  Phase 2: positional fallback on whatever's left.
 
-Writes per-field accuracy table to stdout and dumps detailed mismatches to JSON.
+Note on related_item_number:
+  - prod's `procedure_steps[].related_item_number` is authoritative (anchor to ingredient/menu)
+  - LLM's `procedure_steps[].related_item_number` is ALWAYS null in the raw response (the
+    Gemini schema doesn't ask the LLM to fill it). excel_report.build_data() enriches the
+    LLM procs in-place with rels from `generate_wc_line_build_logs.skeleton_json` before
+    running comparisons. Without this enrichment the rel-first pairing degrades to pure
+    positional and you get false positives (e.g. '4oz Portion Cup' vs 'Queso Blanco').
+
+Verdict tiers (matches excel_report.py):
+  match       - llm == prod
+  严重预警    - functional fields off (hold_usage_seconds, parking_spot, appliance,
+                cooking_usage_seconds, batch_limit, appliance_config_id)
+  轻量预警    - cosmetic / minor (step_usage_seconds, step_title with rel)
+  参考        - COOK/GARNISH step_title where one side has no rel → excluded from stats
+                (packaging / sleeve naming drift is allowed)
 """
 import argparse
 import json
 import os
+import sys
 from collections import Counter, defaultdict
+
+# Same directory import — both scripts live in skill/scripts/
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from excel_report import (  # type: ignore
+    build_data,
+    MATCH_VERDICT, SEVERE_VERDICT, LIGHT_VERDICT, REFERENCE_VERDICT,
+)
 
 
 def default_out_dir():
-    """Output directory for shared baseline + LLM run files.
-
-    Resolution order:
-      1. PROMPT_TUNER_OUT_DIR environment variable (absolute or relative path)
-      2. ./prompt-tuner-out under the current working directory
-
-    Keeping the path relative makes the skill portable across machines — the user
-    just `cd`s into their workspace and runs the scripts, with all artifacts landing
-    under one folder they can git-ignore or share.
-    """
     return os.environ.get("PROMPT_TUNER_OUT_DIR") or os.path.join(os.getcwd(), "prompt-tuner-out")
-
-
-def load(p):
-    with open(p, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def baseline_first_task(raw_path):
-    """Reduce the raw prod export to {_id -> {name, procedures of first line_build's first task}}."""
-    with open(raw_path, "r", encoding="utf-8") as f:
-        docs = json.load(f)
-    out = {}
-    for d in docs:
-        lbs = (d.get("item_line_build") or {}).get("line_builds") or []
-        if not lbs:
-            continue
-        tasks = lbs[0].get("tasks") or []
-        if not tasks:
-            continue
-        out[d["_id"]] = {"name": d.get("name"), "procedures": tasks[0].get("procedures") or []}
-    return out
-
-
-def title_norm(s):
-    return (s or "").strip().lower()
 
 
 def main():
@@ -68,118 +52,49 @@ def main():
                     help="Per-field mismatch dump (default: $PROMPT_TUNER_OUT_DIR/mismatches.json)")
     args = ap.parse_args()
 
-    base = baseline_first_task(args.baseline_raw)
-    llm_out = load(args.llm_output)
+    data = build_data(args.baseline_raw, args.llm_output)
 
-    total = Counter()
-    matched = Counter()
-    mismatches = []
-
-    for entry in llm_out:
-        if entry["status"] != "ok":
+    # ---- Per-field accuracy (matches Summary sheet of excel_report.py) -----
+    bucket = defaultdict(lambda: [0, 0])  # (activity, field) -> [match, total_excluding_reference]
+    ref_count = 0
+    severe_total = light_total = match_total = 0
+    for r in data["details"]:
+        v = r["verdict"]
+        if v == REFERENCE_VERDICT:
+            ref_count += 1
             continue
-        ivid = entry["item_version_id"]
-        b = base.get(ivid)
-        if not b:
-            continue
-        name = b["name"]
-        llm = entry["llm_response_json"]
-        if isinstance(llm, str):
-            llm = json.loads(llm)
+        # collapse step_title[N] / step_title[+N] / step_title[N] (LLM missing ...) -> step_title
+        field_key = r["field"].split("[")[0].strip()
+        bucket[(r["activity"], field_key)][1] += 1
+        if v == MATCH_VERDICT:
+            bucket[(r["activity"], field_key)][0] += 1
+            match_total += 1
+        elif v == SEVERE_VERDICT:
+            severe_total += 1
+        elif v == LIGHT_VERDICT:
+            light_total += 1
 
-        llm_groups = defaultdict(list)
-        for p in sorted(llm.get("procedures") or [], key=lambda x: x.get("order") or 0):
-            llm_groups[p.get("activity")].append(p)
-        base_groups = defaultdict(list)
-        for p in sorted(b["procedures"], key=lambda x: x.get("order") or 0):
-            base_groups[p.get("activity")].append(p)
+    total_items = len(data["per_item"])
+    fully_match = sum(1 for r in data["per_item"] if r["completely_match"])
 
-        for act in ("GARNISH", "COOK", "COMPLETE"):
-            la = llm_groups.get(act, [])
-            ba = base_groups.get(act, [])
-
-            if act == "COOK":
-                pairs = _pair_cook(la, ba)
-            else:
-                n = min(len(la), len(ba))
-                pairs = [(i, la[i], ba[i]) for i in range(n)]
-
-            for i, lp, bp in pairs:
-                if bp is None:
-                    continue
-                _diff_fields(act, i, lp, bp, total, matched, mismatches, name)
-                _diff_step_titles(act, i, lp, bp, total, matched, mismatches, name)
-
-    _print_report(total, matched)
-    with open(args.mismatches_out, "w", encoding="utf-8") as f:
-        json.dump(mismatches, f, ensure_ascii=False, indent=2)
-    print(f"\n{len(mismatches)} mismatches written to {args.mismatches_out}")
-
-
-def _pair_cook(la, ba):
-    """Match COOK procedures by first step's related_item_number; fall back to positional."""
-    def rel_of(p):
-        steps = p.get("procedure_steps") or []
-        return steps[0].get("related_item_number") if steps else None
-
-    base_by_rel = defaultdict(list)
-    for bp in ba:
-        r = rel_of(bp)
-        if r is not None:
-            base_by_rel[r].append(bp)
-    remaining_base = [b for b in ba if rel_of(b) is None]
-    rb_iter = iter(remaining_base)
-
-    pairs = []
-    for i, lp in enumerate(la):
-        r = rel_of(lp)
-        if r is not None and base_by_rel.get(r):
-            pairs.append((i, lp, base_by_rel[r].pop(0)))
-        else:
-            pairs.append((i, lp, next(rb_iter, None)))
-    return pairs
-
-
-def _diff_fields(act, i, lp, bp, total, matched, mismatches, name):
-    fields = ["step_usage_seconds"]
-    if act == "COMPLETE":
-        fields += ["hold_usage_seconds", "parking_spot"]
-    elif act == "COOK":
-        fields += ["appliance", "cooking_usage_seconds", "batch_limit"]
-        if lp.get("appliance") in {"PIZZA_CONVEYOR_OVEN", "TURBO_OVEN"} \
-                or bp.get("appliance") in {"PIZZA_CONVEYOR_OVEN", "TURBO_OVEN"}:
-            fields.append("appliance_config_id")
-    for f in fields:
-        total[(act, f)] += 1
-        if lp.get(f) == bp.get(f):
-            matched[(act, f)] += 1
-        else:
-            mismatches.append({"item": name, "activity": act, "i": i, "field": f,
-                               "llm": lp.get(f), "baseline": bp.get(f)})
-
-
-def _diff_step_titles(act, i, lp, bp, total, matched, mismatches, name):
-    lps = lp.get("procedure_steps") or []
-    bps = bp.get("procedure_steps") or []
-    m = min(len(lps), len(bps))
-    for j in range(m):
-        total[(act, "step_title")] += 1
-        if title_norm(lps[j].get("title")) == title_norm(bps[j].get("title")):
-            matched[(act, "step_title")] += 1
-        else:
-            mismatches.append({"item": name, "activity": act, "i": i, "step_j": j,
-                               "field": "step_title",
-                               "llm": lps[j].get("title"),
-                               "baseline": bps[j].get("title")})
-
-
-def _print_report(total, matched):
-    print(f"\n{'activity':10s} {'field':25s} {'m/total':>15s}  pct")
+    print(f"Items: {total_items}    完全一致: {fully_match}/{total_items} = {100*fully_match/total_items:.1f}%")
+    print()
+    print(f"{'activity':10s} {'field':25s} {'m/total':>15s}  pct")
     print("-" * 65)
-    for k in sorted(total.keys()):
-        m, t = matched[k], total[k]
+    for k in sorted(bucket.keys()):
+        m, t = bucket[k]
         pct = 100 * m / t if t else 0
         print(f"{k[0]:10s} {k[1]:25s} {m:>7d}/{t:<7d}  {pct:5.1f}%")
+    print()
+    print(f"verdict totals: match={match_total}  严重={severe_total}  轻量={light_total}  参考(excluded)={ref_count}")
+    print(f"LLM-Unmatched (extra LLM procs): {len(data['llm_unmatched'])}")
+    print(f"Prod-NotMatched (unpaired prod procs): {len(data['prod_notmatched'])}")
+
+    # Dump mismatches (severe + light only) to JSON for further analysis
+    mismatches = [r for r in data["details"] if r["verdict"] in (SEVERE_VERDICT, LIGHT_VERDICT)]
+    with open(args.mismatches_out, "w", encoding="utf-8") as f:
+        json.dump(mismatches, f, ensure_ascii=False, indent=2, default=str)
+    print(f"\n{len(mismatches)} mismatches written to {args.mismatches_out}")
 
 
 if __name__ == "__main__":
