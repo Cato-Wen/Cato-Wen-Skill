@@ -80,7 +80,7 @@ Per-step notes:
 2. **Run WCLineBuildAgent** — `scripts/runner_parallel.py` fires concurrent requests (unique `chat_session_id` per call), polls `generate_wc_line_build_logs` for completion, dumps to `llm-output.json`.
 3. **Compare** — `scripts/excel_report.py` matches LLM procedures to prod procedures by overlapping `related_item_number` within each activity bucket; unmatched LLM procedures are excluded from accuracy stats and listed separately.
 4. **Identify & Analyze** — open `report.xlsx` → `Mismatches` / `LLM-Unmatched` sheets; group by `(activity, field)`; classify as prompt issue / skeleton issue / prod outlier.
-5. **Adjust the Prompt** — edit `openspec/wc-line-build-agent-prompt-v4-draft.md`; `scripts/seed_prompt.py` writes it back to mongo and `curl PUT /bo/agent/refresh` reloads the agent.
+5. **Adjust the Prompt** — edit **`backend/master-data-agent-service/src/main/resources/wc-line-build-agent-prompt.md`** (and the `.zh.md` mirror for human review). `scripts/seed_prompt.py` writes it back to mongo and `curl PUT /bo/agent/refresh` reloads the agent. Path moved here from `openspec/` so the prompt lives next to the Java service that consumes it.
 
 Salad-heavy traffic: this endpoint's live requests are dominated by salad menus. Always sanity-check `BYO Greens Bowl, Royal Greens` + `Salad (BYO), Limesalt` + Yasas spreads before declaring a prompt version stable.
 
@@ -121,8 +121,10 @@ python scripts/pull_baseline.py --ivids "$PROMPT_TUNER_OUT_DIR/ivids.json" --pro
 
 ### Seed prompt md → mongo + refresh
 
+The prompt lives at **`backend/master-data-agent-service/src/main/resources/wc-line-build-agent-prompt.md`** in the consuming repo (English; `.zh.md` is the Chinese mirror — review only, do NOT seed it). Edit the English file, then seed:
+
 ```bash
-python scripts/seed_prompt.py --prompt path/to/your-prompt.md
+python scripts/seed_prompt.py --prompt backend/master-data-agent-service/src/main/resources/wc-line-build-agent-prompt.md
 curl -sk -X PUT https://127.0.0.1:5097/bo/agent/refresh
 ```
 
